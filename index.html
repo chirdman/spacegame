@@ -3,43 +3,81 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>X4 Foundations-like Browser Game</title>
+    <title>Space Trader Neep</title>
     <style>
+        body {
+            background-color: #000;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
         canvas {
-            border: 1px solid black;
+            border: 1px solid #0ff;
+            margin-bottom: 20px;
+        }
+        #info, #instructions {
+            background-color: rgba(0, 255, 255, 0.1);
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 20px;
         }
     </style>
 </head>
 <body>
+    <h1>Space Trader Neep</h1>
     <canvas id="gameCanvas" width="800" height="600"></canvas>
     <div id="info"></div>
+    <div id="instructions">
+        <h2>Instructions:</h2>
+        <p>Move: Arrow keys</p>
+        <p>Trade at Mining Station: Press 1</p>
+        <p>Trade at Energy Station: Press 2</p>
+        <p>Clean Bins: Press C</p>
+    </div>
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const infoDiv = document.getElementById('info');
 
         class Ship {
-            constructor(x, y) {
+            constructor(x, y, name) {
                 this.x = x;
                 this.y = y;
+                this.name = name;
                 this.speed = 5;
                 this.credits = 1000;
                 this.cargo = {};
+                this.binCleanliness = 100;
+                this.score = 0;
             }
 
             move(dx, dy) {
                 this.x += dx * this.speed;
                 this.y += dy * this.speed;
+                this.binCleanliness -= 0.1;
+                if (this.binCleanliness <= 0) {
+                    alert('Game Over! Bins are too dirty!');
+                    location.reload();
+                }
             }
 
             draw() {
-                ctx.fillStyle = 'blue';
+                ctx.fillStyle = '#0ff';
                 ctx.beginPath();
                 ctx.moveTo(this.x, this.y - 10);
                 ctx.lineTo(this.x - 10, this.y + 10);
                 ctx.lineTo(this.x + 10, this.y + 10);
                 ctx.closePath();
                 ctx.fill();
+            }
+
+            cleanBins() {
+                this.binCleanliness = Math.min(100, this.binCleanliness + 20);
+                this.credits -= 50;
             }
         }
 
@@ -59,20 +97,35 @@
             }
 
             draw() {
-                ctx.fillStyle = 'red';
+                ctx.fillStyle = '#f0f';
                 ctx.fillRect(this.x - 20, this.y - 20, 40, 40);
+                ctx.fillStyle = '#fff';
+                ctx.font = '12px Arial';
+                ctx.fillText(this.type, this.x - 15, this.y + 5);
             }
         }
 
-        const player = new Ship(400, 300);
+        const player = new Ship(400, 300, 'Neep');
+        const richard = { name: 'Richard', score: 1500 };
         const stations = [
             new Station(100, 100, 'Mining'),
             new Station(700, 500, 'Energy')
         ];
 
+        function drawStars() {
+            ctx.fillStyle = '#fff';
+            for (let i = 0; i < 100; i++) {
+                ctx.beginPath();
+                ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, 1, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
         function update() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
             
+            drawStars();
             player.draw();
             stations.forEach(station => station.draw());
 
@@ -80,7 +133,18 @@
         }
 
         function updateInfo() {
-            infoDiv.innerHTML = `Credits: ${player.credits}<br>Cargo: ${JSON.stringify(player.cargo)}`;
+            player.score = player.credits + Object.values(player.cargo).reduce((sum, value) => sum + value, 0) * 100;
+            richard.score = Math.max(richard.score, player.score + 500);
+
+            infoDiv.innerHTML = `
+                <h2>${player.name}'s Status:</h2>
+                <p>Credits: ${player.credits}</p>
+                <p>Cargo: ${JSON.stringify(player.cargo)}</p>
+                <p>Bin Cleanliness: ${player.binCleanliness.toFixed(2)}%</p>
+                <p>Score: ${player.score}</p>
+                <h2>Rival:</h2>
+                <p>${richard.name}'s Score: ${richard.score}</p>
+            `;
         }
 
         function trade(stationIndex) {
@@ -89,10 +153,12 @@
                 player.credits -= station.prices.ore;
                 player.cargo.ore = (player.cargo.ore || 0) + 1;
                 station.inventory.ore--;
+                player.score += 10;
             } else if (station.type === 'Energy' && player.credits >= station.prices.energy) {
                 player.credits -= station.prices.energy;
                 player.cargo.energy = (player.cargo.energy || 0) + 1;
                 station.inventory.energy--;
+                player.score += 10;
             }
             updateInfo();
         }
@@ -105,6 +171,7 @@
                 case 'ArrowRight': player.move(1, 0); break;
                 case '1': trade(0); break;
                 case '2': trade(1); break;
+                case 'c': case 'C': player.cleanBins(); break;
             }
             update();
         });
