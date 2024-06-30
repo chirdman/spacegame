@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>X4 Foundations-like Browser Game</title>
+    <style>
+        canvas {
+            border: 1px solid black;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <div id="info"></div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const infoDiv = document.getElementById('info');
+
+        class Ship {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.speed = 5;
+                this.credits = 1000;
+                this.cargo = {};
+            }
+
+            move(dx, dy) {
+                this.x += dx * this.speed;
+                this.y += dy * this.speed;
+            }
+
+            draw() {
+                ctx.fillStyle = 'blue';
+                ctx.beginPath();
+                ctx.moveTo(this.x, this.y - 10);
+                ctx.lineTo(this.x - 10, this.y + 10);
+                ctx.lineTo(this.x + 10, this.y + 10);
+                ctx.closePath();
+                ctx.fill();
+            }
+        }
+
+        class Station {
+            constructor(x, y, type) {
+                this.x = x;
+                this.y = y;
+                this.type = type;
+                this.inventory = {
+                    'ore': 100,
+                    'energy': 100
+                };
+                this.prices = {
+                    'ore': 50,
+                    'energy': 30
+                };
+            }
+
+            draw() {
+                ctx.fillStyle = 'red';
+                ctx.fillRect(this.x - 20, this.y - 20, 40, 40);
+            }
+        }
+
+        const player = new Ship(400, 300);
+        const stations = [
+            new Station(100, 100, 'Mining'),
+            new Station(700, 500, 'Energy')
+        ];
+
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            player.draw();
+            stations.forEach(station => station.draw());
+
+            updateInfo();
+        }
+
+        function updateInfo() {
+            infoDiv.innerHTML = `Credits: ${player.credits}<br>Cargo: ${JSON.stringify(player.cargo)}`;
+        }
+
+        function trade(stationIndex) {
+            const station = stations[stationIndex];
+            if (station.type === 'Mining' && player.credits >= station.prices.ore) {
+                player.credits -= station.prices.ore;
+                player.cargo.ore = (player.cargo.ore || 0) + 1;
+                station.inventory.ore--;
+            } else if (station.type === 'Energy' && player.credits >= station.prices.energy) {
+                player.credits -= station.prices.energy;
+                player.cargo.energy = (player.cargo.energy || 0) + 1;
+                station.inventory.energy--;
+            }
+            updateInfo();
+        }
+
+        document.addEventListener('keydown', (e) => {
+            switch(e.key) {
+                case 'ArrowUp': player.move(0, -1); break;
+                case 'ArrowDown': player.move(0, 1); break;
+                case 'ArrowLeft': player.move(-1, 0); break;
+                case 'ArrowRight': player.move(1, 0); break;
+                case '1': trade(0); break;
+                case '2': trade(1); break;
+            }
+            update();
+        });
+
+        update();
+    </script>
+</body>
+</html>
