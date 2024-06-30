@@ -16,7 +16,7 @@
         #gameCanvas {
             position: absolute;
             top: 0;
-            left: 0;
+            left: 200px;
         }
         #fullscreenBtn {
             position: absolute;
@@ -27,7 +27,7 @@
         #ticker {
             position: absolute;
             bottom: 10px;
-            left: 10px;
+            left: 210px;
             right: 10px;
             background-color: rgba(0, 0, 0, 0.7);
             padding: 10px;
@@ -35,23 +35,51 @@
             max-height: 100px;
             overflow-y: auto;
         }
+        #instructions {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 200px;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+        #stats {
+            position: absolute;
+            top: 10px;
+            left: 210px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <button id="fullscreenBtn">Fullscreen</button>
     <div id="ticker"></div>
+    <div id="instructions"></div>
+    <div id="stats"></div>
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const fullscreenBtn = document.getElementById('fullscreenBtn');
         const ticker = document.getElementById('ticker');
+        const instructions = document.getElementById('instructions');
+        const statsDiv = document.getElementById('stats');
 
-        let width = window.innerWidth;
+        let width = window.innerWidth - 200;
         let height = window.innerHeight;
 
         canvas.width = width;
         canvas.height = height;
+
+        const GOODS = [
+            'binliners', 'dog pictures', 'engagement rings', 'spartan strips', 
+            'voddy', 'condoms', 'bacardi', 'cleaning supplies', 'dildos'
+        ];
 
         class Ship {
             constructor(x, y, name) {
@@ -99,14 +127,8 @@
                 this.x = x;
                 this.y = y;
                 this.type = type;
-                this.inventory = {
-                    'ore': 100,
-                    'energy': 100
-                };
-                this.prices = {
-                    'ore': 50,
-                    'energy': 30
-                };
+                this.inventory = 100;
+                this.price = Math.floor(Math.random() * 50) + 25;
             }
 
             draw() {
@@ -183,10 +205,11 @@
 
         const player = new Ship(width/2, height/2, 'Neep');
         const richard = { name: 'Richard', score: 1500 };
-        const stations = [
-            new Station(100, 100, 'Mining'),
-            new Station(width - 100, height - 100, 'Energy')
-        ];
+        const stations = GOODS.map((good, index) => {
+            const x = Math.random() * (width - 100) + 50;
+            const y = Math.random() * (height - 100) + 50;
+            return new Station(x, y, good);
+        });
         let displates = [];
         let cops = [];
 
@@ -200,43 +223,20 @@
         }
 
         function drawStats() {
-            // Credits
-            ctx.fillStyle = '#0f0';
-            ctx.fillRect(10, 10, 200, 20);
-            ctx.fillStyle = '#000';
-            ctx.fillRect(10, 10, 200 * (player.credits / 2000), 20);
-            ctx.fillStyle = '#fff';
-            ctx.font = '14px Arial';
-            ctx.fillText(`Credits: ${player.credits}`, 15, 25);
-
-            // Bin Cleanliness
-            ctx.fillStyle = '#f00';
-            ctx.fillRect(10, 40, 200, 20);
-            ctx.fillStyle = '#0f0';
-            ctx.fillRect(10, 40, 200 * (player.binCleanliness / 100), 20);
-            ctx.fillStyle = '#fff';
-            ctx.fillText(`Bin Cleanliness: ${player.binCleanliness.toFixed(2)}%`, 15, 55);
-
-            // Brain Problem
-            ctx.fillStyle = '#0f0';
-            ctx.fillRect(10, 70, 200, 20);
-            ctx.fillStyle = '#f00';
-            ctx.fillRect(10, 70, 200 * (player.brainProblem / 100), 20);
-            ctx.fillStyle = '#fff';
-            ctx.fillText(`Brain Problem: ${player.brainProblem.toFixed(2)}%`, 15, 85);
-
-            // Scores
-            ctx.fillStyle = '#fff';
-            ctx.fillText(`${player.name}'s Score: ${player.score}`, 10, 115);
-            ctx.fillText(`${richard.name}'s Score: ${richard.score}`, 10, 135);
-
-            // Criminal Level
-            ctx.fillStyle = '#f00';
-            ctx.fillRect(10, 155, 200, 20);
-            ctx.fillStyle = '#fff';
-            ctx.fillRect(10, 155, 200 * player.criminalLevel, 20);
-            ctx.fillStyle = '#000';
-            ctx.fillText(`Criminal Level: ${(player.criminalLevel * 100).toFixed(2)}%`, 15, 170);
+            let statsHTML = `
+                <h3>Stats:</h3>
+                <p>Credits: ${player.credits}</p>
+                <p>Bin Cleanliness: ${player.binCleanliness.toFixed(2)}%</p>
+                <p>Brain Problem: ${player.brainProblem.toFixed(2)}%</p>
+                <p>${player.name}'s Score: ${player.score}</p>
+                <p>${richard.name}'s Score: ${richard.score}</p>
+                <p>Criminal Level: ${(player.criminalLevel * 100).toFixed(2)}%</p>
+                <h3>Cargo:</h3>
+            `;
+            for (let [item, quantity] of Object.entries(player.cargo)) {
+                statsHTML += `<p>${item}: ${quantity}</p>`;
+            }
+            statsDiv.innerHTML = statsHTML;
         }
 
         function update() {
@@ -269,18 +269,14 @@
 
         function trade(stationIndex) {
             const station = stations[stationIndex];
-            if (station.type === 'Mining' && player.credits >= station.prices.ore) {
-                player.credits -= station.prices.ore;
-                player.cargo.ore = (player.cargo.ore || 0) + 1;
-                station.inventory.ore--;
+            if (player.credits >= station.price) {
+                player.credits -= station.price;
+                player.cargo[station.type] = (player.cargo[station.type] || 0) + 1;
+                station.inventory--;
                 player.score += 10;
-                addMessage(`Bought ore for ${station.prices.ore} credits.`);
-            } else if (station.type === 'Energy' && player.credits >= station.prices.energy) {
-                player.credits -= station.prices.energy;
-                player.cargo.energy = (player.cargo.energy || 0) + 1;
-                station.inventory.energy--;
-                player.score += 10;
-                addMessage(`Bought energy for ${station.prices.energy} credits.`);
+                addMessage(`Bought ${station.type} for ${station.price} credits.`);
+            } else {
+                addMessage(`Not enough credits to buy ${station.type}.`);
             }
         }
 
@@ -314,22 +310,35 @@
             setTimeout(() => location.reload(), 3000);
         }
 
+        function updateInstructions() {
+            instructions.innerHTML = `
+                <h2>Instructions:</h2>
+                <p>Arrow keys: Move</p>
+                <p>C: Clean bins</p>
+                <p>Space: Collect displate</p>
+                ${GOODS.map((good, index) => `<p>${index + 1}: Buy ${good}</p>`).join('')}
+            `;
+        }
+
         document.addEventListener('keydown', (e) => {
             switch(e.key) {
                 case 'ArrowUp': player.move(0, -1); break;
                 case 'ArrowDown': player.move(0, 1); break;
                 case 'ArrowLeft': player.move(-1, 0); break;
                 case 'ArrowRight': player.move(1, 0); break;
-                case '1': trade(0); break;
-                case '2': trade(1); break;
                 case 'c': case 'C': player.cleanBins(); break;
                 case ' ': collectDisplate(); break;
+                default:
+                    if (e.key >= '1' && e.key <= '9') {
+                        trade(parseInt(e.key) - 1);
+                    }
+                    break;
             }
         });
 
         fullscreenBtn.addEventListener('click', () => {
-            if (canvas.requestFullscreen) {
-                canvas.requestFullscreen();
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen();
             }
         });
 
@@ -338,15 +347,18 @@
             requestAnimationFrame(gameLoop);
         }
 
+        updateInstructions();
         gameLoop();
 
         window.addEventListener('resize', () => {
-            width = window.innerWidth;
+            width = window.innerWidth - 200;
             height = window.innerHeight;
             canvas.width = width;
             canvas.height = height;
-            stations[1].x = width - 100;
-            stations[1].y = height - 100;
+            stations.forEach(station => {
+                station.x = Math.random() * (width - 100) + 50;
+                station.y = Math.random() * (height - 100) + 50;
+            });
         });
 
         addMessage("Welcome to Space Trader Neep! Use arrow keys to move, space to collect displates, and C to clean bins.");
