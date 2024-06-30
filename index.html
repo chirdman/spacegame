@@ -5,43 +5,40 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Space Trader Neep</title>
     <style>
-        body {
+        body, html {
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
             background-color: #000;
             color: #fff;
             font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
         }
-        canvas {
-            border: 1px solid #0ff;
-            margin-bottom: 20px;
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
         }
-        #info, #instructions {
-            background-color: rgba(0, 255, 255, 0.1);
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
+        #fullscreenBtn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
         }
     </style>
 </head>
 <body>
-    <h1>Space Trader Neep</h1>
-    <canvas id="gameCanvas" width="800" height="600"></canvas>
-    <div id="info"></div>
-    <div id="instructions">
-        <h2>Instructions:</h2>
-        <p>Move: Arrow keys</p>
-        <p>Trade at Mining Station: Press 1</p>
-        <p>Trade at Energy Station: Press 2</p>
-        <p>Clean Bins: Press C</p>
-    </div>
+    <canvas id="gameCanvas"></canvas>
+    <button id="fullscreenBtn">Fullscreen</button>
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
-        const infoDiv = document.getElementById('info');
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+
+        canvas.width = width;
+        canvas.height = height;
 
         class Ship {
             constructor(x, y, name) {
@@ -52,16 +49,18 @@
                 this.credits = 1000;
                 this.cargo = {};
                 this.binCleanliness = 100;
+                this.brainProblem = 0;
                 this.score = 0;
+                this.criminalLevel = 0;
             }
 
             move(dx, dy) {
                 this.x += dx * this.speed;
                 this.y += dy * this.speed;
-                this.binCleanliness -= 0.1;
-                if (this.binCleanliness <= 0) {
-                    alert('Game Over! Bins are too dirty!');
-                    location.reload();
+                this.binCleanliness -= 0.05;
+                this.brainProblem += 0.02;
+                if (this.binCleanliness <= 0 || this.brainProblem >= 100) {
+                    gameOver();
                 }
             }
 
@@ -105,46 +104,140 @@
             }
         }
 
-        const player = new Ship(400, 300, 'Neep');
+        class Displate {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.value = Math.floor(Math.random() * 500) + 100;
+            }
+
+            draw() {
+                ctx.fillStyle = '#ff0';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 5, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        class Cop {
+            constructor() {
+                this.x = Math.random() * width;
+                this.y = Math.random() * height;
+                this.speed = 3;
+            }
+
+            draw() {
+                ctx.fillStyle = '#f00';
+                ctx.fillRect(this.x - 10, this.y - 10, 20, 20);
+            }
+
+            move() {
+                let dx = player.x - this.x;
+                let dy = player.y - this.y;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                if (distance > 0) {
+                    this.x += (dx / distance) * this.speed;
+                    this.y += (dy / distance) * this.speed;
+                }
+            }
+
+            checkCollision() {
+                let dx = player.x - this.x;
+                let dy = player.y - this.y;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                if (distance < 30) {
+                    let fine = Math.floor(player.criminalLevel * 100);
+                    player.credits -= fine;
+                    player.criminalLevel = Math.max(0, player.criminalLevel - 0.5);
+                    alert(`You've been fined ${fine} credits!`);
+                }
+            }
+        }
+
+        const player = new Ship(width/2, height/2, 'Neep');
         const richard = { name: 'Richard', score: 1500 };
         const stations = [
             new Station(100, 100, 'Mining'),
-            new Station(700, 500, 'Energy')
+            new Station(width - 100, height - 100, 'Energy')
         ];
+        let displates = [];
+        let cops = [];
 
         function drawStars() {
             ctx.fillStyle = '#fff';
             for (let i = 0; i < 100; i++) {
                 ctx.beginPath();
-                ctx.arc(Math.random() * canvas.width, Math.random() * canvas.height, 1, 0, Math.PI * 2);
+                ctx.arc(Math.random() * width, Math.random() * height, 1, 0, Math.PI * 2);
                 ctx.fill();
             }
         }
 
+        function drawStats() {
+            // Credits
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(10, 10, 200, 20);
+            ctx.fillStyle = '#000';
+            ctx.fillRect(10, 10, 200 * (player.credits / 2000), 20);
+            ctx.fillStyle = '#fff';
+            ctx.font = '14px Arial';
+            ctx.fillText(`Credits: ${player.credits}`, 15, 25);
+
+            // Bin Cleanliness
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(10, 40, 200, 20);
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(10, 40, 200 * (player.binCleanliness / 100), 20);
+            ctx.fillStyle = '#fff';
+            ctx.fillText(`Bin Cleanliness: ${player.binCleanliness.toFixed(2)}%`, 15, 55);
+
+            // Brain Problem
+            ctx.fillStyle = '#0f0';
+            ctx.fillRect(10, 70, 200, 20);
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(10, 70, 200 * (player.brainProblem / 100), 20);
+            ctx.fillStyle = '#fff';
+            ctx.fillText(`Brain Problem: ${player.brainProblem.toFixed(2)}%`, 15, 85);
+
+            // Scores
+            ctx.fillStyle = '#fff';
+            ctx.fillText(`${player.name}'s Score: ${player.score}`, 10, 115);
+            ctx.fillText(`${richard.name}'s Score: ${richard.score}`, 10, 135);
+
+            // Criminal Level
+            ctx.fillStyle = '#f00';
+            ctx.fillRect(10, 155, 200, 20);
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(10, 155, 200 * player.criminalLevel, 20);
+            ctx.fillStyle = '#000';
+            ctx.fillText(`Criminal Level: ${(player.criminalLevel * 100).toFixed(2)}%`, 15, 170);
+        }
+
         function update() {
             ctx.fillStyle = '#000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillRect(0, 0, width, height);
             
             drawStars();
             player.draw();
             stations.forEach(station => station.draw());
+            displates.forEach(displate => displate.draw());
+            cops.forEach(cop => {
+                cop.move();
+                cop.draw();
+                cop.checkCollision();
+            });
 
-            updateInfo();
-        }
+            drawStats();
 
-        function updateInfo() {
             player.score = player.credits + Object.values(player.cargo).reduce((sum, value) => sum + value, 0) * 100;
             richard.score = Math.max(richard.score, player.score + 500);
 
-            infoDiv.innerHTML = `
-                <h2>${player.name}'s Status:</h2>
-                <p>Credits: ${player.credits}</p>
-                <p>Cargo: ${JSON.stringify(player.cargo)}</p>
-                <p>Bin Cleanliness: ${player.binCleanliness.toFixed(2)}%</p>
-                <p>Score: ${player.score}</p>
-                <h2>Rival:</h2>
-                <p>${richard.name}'s Score: ${richard.score}</p>
-            `;
+            if (Math.random() < 0.02) {
+                displates.push(new Displate(Math.random() * width, Math.random() * height));
+            }
+
+            if (Math.random() < 0.005 && cops.length < 3) {
+                cops.push(new Cop());
+            }
         }
 
         function trade(stationIndex) {
@@ -160,7 +253,25 @@
                 station.inventory.energy--;
                 player.score += 10;
             }
-            updateInfo();
+        }
+
+        function collectDisplate() {
+            for (let i = 0; i < displates.length; i++) {
+                let dx = player.x - displates[i].x;
+                let dy = player.y - displates[i].y;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                if (distance < 20) {
+                    player.credits += displates[i].value;
+                    player.criminalLevel = Math.min(1, player.criminalLevel + 0.1);
+                    displates.splice(i, 1);
+                    break;
+                }
+            }
+        }
+
+        function gameOver() {
+            alert(`Game Over! Your final score: ${player.score}`);
+            location.reload();
         }
 
         document.addEventListener('keydown', (e) => {
@@ -172,11 +283,31 @@
                 case '1': trade(0); break;
                 case '2': trade(1); break;
                 case 'c': case 'C': player.cleanBins(); break;
+                case ' ': collectDisplate(); break;
             }
-            update();
         });
 
-        update();
+        fullscreenBtn.addEventListener('click', () => {
+            if (canvas.requestFullscreen) {
+                canvas.requestFullscreen();
+            }
+        });
+
+        function gameLoop() {
+            update();
+            requestAnimationFrame(gameLoop);
+        }
+
+        gameLoop();
+
+        window.addEventListener('resize', () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            stations[1].x = width - 100;
+            stations[1].y = height - 100;
+        });
     </script>
 </body>
 </html>
