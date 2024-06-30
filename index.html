@@ -24,15 +24,28 @@
             right: 10px;
             z-index: 100;
         }
+        #ticker {
+            position: absolute;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 5px;
+            max-height: 100px;
+            overflow-y: auto;
+        }
     </style>
 </head>
 <body>
     <canvas id="gameCanvas"></canvas>
     <button id="fullscreenBtn">Fullscreen</button>
+    <div id="ticker"></div>
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         const fullscreenBtn = document.getElementById('fullscreenBtn');
+        const ticker = document.getElementById('ticker');
 
         let width = window.innerWidth;
         let height = window.innerHeight;
@@ -77,6 +90,7 @@
             cleanBins() {
                 this.binCleanliness = Math.min(100, this.binCleanliness + 20);
                 this.credits -= 50;
+                addMessage("Bins cleaned for 50 credits.");
             }
         }
 
@@ -225,7 +239,66 @@
             ctx.fillText(`Criminal Level: ${(player.criminalLevel * 100).toFixed(2)}%`, 15, 170);
         }
 
-        const ticker = document.getElementById('ticker');
+        function update() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, width, height);
+            
+            drawStars();
+            player.draw();
+            stations.forEach(station => station.draw());
+            displates.forEach(displate => displate.draw());
+            cops.forEach(cop => {
+                cop.move();
+                cop.draw();
+                cop.checkCollision();
+            });
+
+            drawStats();
+
+            player.score = player.credits + Object.values(player.cargo).reduce((sum, value) => sum + value, 0) * 100;
+            richard.score = Math.max(richard.score, player.score + 500);
+
+            if (Math.random() < 0.02) {
+                displates.push(new Displate(Math.random() * width, Math.random() * height));
+            }
+
+            if (Math.random() < 0.005 && cops.length < 3) {
+                cops.push(new Cop());
+            }
+        }
+
+        function trade(stationIndex) {
+            const station = stations[stationIndex];
+            if (station.type === 'Mining' && player.credits >= station.prices.ore) {
+                player.credits -= station.prices.ore;
+                player.cargo.ore = (player.cargo.ore || 0) + 1;
+                station.inventory.ore--;
+                player.score += 10;
+                addMessage(`Bought ore for ${station.prices.ore} credits.`);
+            } else if (station.type === 'Energy' && player.credits >= station.prices.energy) {
+                player.credits -= station.prices.energy;
+                player.cargo.energy = (player.cargo.energy || 0) + 1;
+                station.inventory.energy--;
+                player.score += 10;
+                addMessage(`Bought energy for ${station.prices.energy} credits.`);
+            }
+        }
+
+        function collectDisplate() {
+            for (let i = 0; i < displates.length; i++) {
+                let dx = player.x - displates[i].x;
+                let dy = player.y - displates[i].y;
+                let distance = Math.sqrt(dx*dx + dy*dy);
+                if (distance < 20) {
+                    player.credits += displates[i].value;
+                    player.criminalLevel = Math.min(1, player.criminalLevel + 0.1);
+                    addMessage(`Collected displate worth ${displates[i].value} credits. Criminal level increased.`);
+                    displates.splice(i, 1);
+                    break;
+                }
+            }
+        }
+
         function addMessage(message) {
             const messageElement = document.createElement('p');
             messageElement.textContent = message;
@@ -239,40 +312,6 @@
             addMessage(`Game Over! Your final score: ${player.score}`);
             player.speed = 0;
             setTimeout(() => location.reload(), 3000);
-        }
-        
-        function trade(stationIndex) {
-            const station = stations[stationIndex];
-            if (station.type === 'Mining' && player.credits >= station.prices.ore) {
-                player.credits -= station.prices.ore;
-                player.cargo.ore = (player.cargo.ore || 0) + 1;
-                station.inventory.ore--;
-                player.score += 10;
-            } else if (station.type === 'Energy' && player.credits >= station.prices.energy) {
-                player.credits -= station.prices.energy;
-                player.cargo.energy = (player.cargo.energy || 0) + 1;
-                station.inventory.energy--;
-                player.score += 10;
-            }
-        }
-
-        function collectDisplate() {
-            for (let i = 0; i < displates.length; i++) {
-                let dx = player.x - displates[i].x;
-                let dy = player.y - displates[i].y;
-                let distance = Math.sqrt(dx*dx + dy*dy);
-                if (distance < 20) {
-                    player.credits += displates[i].value;
-                    player.criminalLevel = Math.min(1, player.criminalLevel + 0.1);
-                    displates.splice(i, 1);
-                    break;
-                }
-            }
-        }
-
-        function gameOver() {
-            alert(`Game Over! Your final score: ${player.score}`);
-            location.reload();
         }
 
         document.addEventListener('keydown', (e) => {
@@ -309,6 +348,8 @@
             stations[1].x = width - 100;
             stations[1].y = height - 100;
         });
+
+        addMessage("Welcome to Space Trader Neep! Use arrow keys to move, space to collect displates, and C to clean bins.");
     </script>
 </body>
 </html>
